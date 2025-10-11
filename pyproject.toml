@@ -20,13 +20,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-
+    "prek>=0.2.5",
 ]
 lint = [
-
+    "mypy>=1.18.2",
+    "ruff>=0.14.0",
 ]
 test = [
-
+    "pytest>=8.4.2",
 ]
 
 [build-system]
