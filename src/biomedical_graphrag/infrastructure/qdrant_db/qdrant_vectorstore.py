@@ -44,7 +44,7 @@ class AsyncQdrantVectorStore:
 
     async def create_collection(self) -> None:
         """
-        Create a new collection in Qdrant (async) for hybrid search.
+        Create a new collection in Qdrant (async) for hybrid search with scalar quantization.
         Args:
                 collection_name (str): Name of the collection.
                 kwargs: Additional parameters for collection creation.
@@ -54,7 +54,15 @@ class AsyncQdrantVectorStore:
             collection_name=self.collection_name,
             vectors_config={
                 "Dense": models.VectorParams(
-                    size=self.embedding_dimension, distance=models.Distance.COSINE
+                    size=self.embedding_dimension, 
+                    distance=models.Distance.COSINE,
+                    quantization_config=models.ScalarQuantization(
+                        scalar=models.ScalarQuantizationConfig(
+                            type=models.ScalarType.INT8,
+                            quantile=0.99,
+                            always_ram=True
+                        )
+                    )
                 )
             },
             sparse_vectors_config={
@@ -194,8 +202,8 @@ class AsyncQdrantVectorStore:
                 if not title or not abstract or not pmid:
                     batch_skipped += 1
                     logger.info(
-                        f"⚠️ Skipping paper {pmid or 'unknown'} due to missing fields - "
-                        f"Fields exist: Title: {bool(title)}, Abstract: {bool(abstract)}, PMID: {bool(pmid)}"
+                        f"⚠️ Skipping paper {pmid or 'unknown'} due to missing fields:"
+                        f"Title: {not(bool(title))}, Abstract: {not(bool(abstract))}, PMID: {not(bool(pmid))}"
                     )
                     continue
 

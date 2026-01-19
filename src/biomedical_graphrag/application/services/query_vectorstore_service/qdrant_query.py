@@ -36,7 +36,7 @@ class AsyncQdrantQuery:
     async def retrieve_documents_dense(self, question: str, top_k: int = 5) -> list[dict]:
         """
         Query the Qdrant vector store for similar documents (async).
-        Vanilla dense search.
+        Vanilla dense search on quantized openAI embeddings.
 
         Args:
             question (str): Input question to query.
@@ -50,6 +50,12 @@ class AsyncQdrantQuery:
             collection_name=self.collection_name,
             query=dense_vector,
             using="Dense",
+            search_params=models.SearchParams(
+                quantization=models.QuantizationSearchParams(
+                    oversampling=3.0, # retrieve 3 * top_k quantized vectors
+                    rescore=True, # to rescore with original vectors
+                )
+            ),
             limit=top_k,
             with_payload=True,
         )
@@ -83,6 +89,12 @@ class AsyncQdrantQuery:
                 models.Prefetch(
                     query=dense_vector,
                     using="Dense",
+                    params=models.SearchParams(
+                        quantization=models.QuantizationSearchParams(
+                            oversampling=3.0, # retrieve 3 * top_k quantized vectors
+                            rescore=True # to rescore with original vectors
+                        )
+                    ),
                     limit=top_k,
                 ),
                 models.Prefetch(
