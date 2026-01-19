@@ -29,11 +29,13 @@ class AsyncQdrantVectorStore:
         self.collection_name = settings.qdrant.collection_name
         self.embedding_dimension = settings.qdrant.embedding_dimension
         self.estimate_bm25_avg_len_on_x_docs = settings.qdrant.estimate_bm25_avg_len_on_x_docs
+        self.cloud_inference = settings.qdrant.cloud_inference
 
         self.openai_client = AsyncOpenAI(api_key=settings.openai.api_key.get_secret_value())
 
         self.client = AsyncQdrantClient(
-            url=self.url, api_key=self.api_key.get_secret_value() if self.api_key else None
+            url=self.url, api_key=self.api_key.get_secret_value() if self.api_key else None,
+            cloud_inference=self.cloud_inference
         )
 
     async def close(self) -> None:
@@ -73,7 +75,7 @@ class AsyncQdrantVectorStore:
         await self.client.delete_collection(collection_name=self.collection_name)
         logger.info(f"✅ Collection '{self.collection_name}' deleted successfully")
 
-    async def _get_dense_vectors(self, text: str) -> list[float]:
+    async def _get_openai_vectors(self, text: str) -> models.Vector:
         """
         Get the embedding vector for the given text (async).
         Args:
@@ -81,14 +83,23 @@ class AsyncQdrantVectorStore:
         Returns:
                 list[float]: The embedding vector.
         """
-        try:
-            embedding = await self.openai_client.embeddings.create(
-                model=settings.qdrant.embedding_model, input=text
-            )
-            return embedding.data[0].embedding
-        except Exception as e:
-            logger.error(f"❌ Failed to create embedding: {e}")
-            raise
+        if self.cloud_inference:
+            return models.Document(
+                    text=text, 
+                    model=f"openai/{settings.qdrant.embedding_model}", 
+                    options={
+                        "openai-api-key": settings.openai.api_key.get_secret_value()
+                    }
+                )
+        else:
+            try:
+                embedding = await self.openai_client.embeddings.create(
+                    model=settings.qdrant.embedding_model, input=text
+                )
+                return embedding.data[0].embedding
+            except Exception as e:
+                logger.error(f"❌ Failed to create embedding: {e}")
+                raise
 
     def _define_bm25_vectors(self, text: str, avg_len: int = 256) -> models.Document:
         """
@@ -189,7 +200,7 @@ class AsyncQdrantVectorStore:
                     continue
 
                 try:
-                    dense_vector = await self._get_dense_vectors(abstract)
+                    dense_vector = await self._get_openai_vectors(abstract)
                     sparse_vector = self._define_bm25_vectors(abstract, avg_len=avg_abstracts_len)
 
                     # Get citation network for this paper if available
@@ -231,7 +242,7 @@ class AsyncQdrantVectorStore:
                         points=Batch(
                             ids=[str(i) for i in batch_ids],
                             payloads=batch_payloads,
-                            vectors={"Dense": [list(v) for v in batch_dense_vectors],
+                            vectors={"Dense": batch_dense_vectors,
                                      "Lexical": batch_sparse_vectors},
                         ),
                     )

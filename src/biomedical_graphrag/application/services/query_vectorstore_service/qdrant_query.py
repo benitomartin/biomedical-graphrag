@@ -23,6 +23,7 @@ class AsyncQdrantQuery:
         self.api_key = settings.qdrant.api_key
         self.collection_name = settings.qdrant.collection_name
         self.embedding_dimension = settings.qdrant.embedding_dimension
+        self.cloud_inference = settings.qdrant.cloud_inference
 
         self.openai_client = AsyncOpenAI(api_key=settings.openai.api_key.get_secret_value())
 
@@ -43,7 +44,7 @@ class AsyncQdrantQuery:
         Returns:
             List of dictionaries containing the top_k similar documents.
         """
-        dense_vector = await self.qdrant_client._get_dense_vectors(question)
+        dense_vector = await self.qdrant_client._get_openai_vectors(question)
 
         search_result = await self.qdrant_client.client.query_points(
             collection_name=self.collection_name,
@@ -73,7 +74,7 @@ class AsyncQdrantQuery:
         Returns:
             List of dictionaries containing the top_k similar documents.
         """
-        dense_vector = await self.qdrant_client._get_dense_vectors(question)
+        dense_vector = await self.qdrant_client._get_openai_vectors(question)
         sparse_vector = self.qdrant_client._define_bm25_vectors(question)
 
         search_result = await self.qdrant_client.client.query_points(
