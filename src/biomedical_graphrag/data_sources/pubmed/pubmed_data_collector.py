@@ -62,7 +62,14 @@ class PubMedDataCollector(BaseDataSource):
         await self._rate_limit()
         raw_papers = await self.api.fetch_papers(paper_ids)
         logger.info(f"Fetched {len(raw_papers)} raw PubMed records; parsing into Paper models")
-        papers = [self._parse_paper(r) for r in raw_papers]
+        papers: list[Paper] = []
+        skipped = 0
+        for r in raw_papers:
+            parsed = self._parse_paper(r)
+            if parsed is None:
+                skipped += 1
+                continue
+            papers.append(parsed)
         logger.info(f"Parsed {len(papers)} papers")
         return papers
 
@@ -149,7 +156,7 @@ class PubMedDataCollector(BaseDataSource):
         logger.info("PubMed dataset collection complete")
         return PaperDataset(metadata=metadata, papers=papers, citation_network=citation_network)
 
-    def _parse_paper(self, record: dict) -> Paper:
+    def _parse_paper(self, record: dict) -> Paper | None:
         """
         Parse a raw PubMed record into a Paper object.
 
@@ -160,7 +167,10 @@ class PubMedDataCollector(BaseDataSource):
         """
         medline = record.get("MedlineCitation", {})
         article = medline.get("Article", {})
-        pmid = str(medline.get("PMID", ""))
+        pmid = str(medline.get("PMID", "")).strip()
+        if not pmid:
+            logger.debug("Skipping PubMed record with empty PMID")
+            return None
         title = article.get("ArticleTitle", "")
         abstract = self._extract_abstract(article)
         authors = self._extract_authors(article)

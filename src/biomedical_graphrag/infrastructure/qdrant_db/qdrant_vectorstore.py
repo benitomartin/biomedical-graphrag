@@ -199,11 +199,11 @@ class AsyncQdrantVectorStore:
                 authors = paper.get("authors", [])
                 mesh_terms = paper.get("mesh_terms", [])
 
-                if not title or not abstract or not pmid:
+                if not abstract or not pmid:
                     batch_skipped += 1
                     logger.info(
                         f"⚠️ Skipping paper {pmid or 'unknown'} due to missing fields:"
-                        f"Title: {not(bool(title))}, Abstract: {not(bool(abstract))}, PMID: {not(bool(pmid))}"
+                        f"Abstract: {not(bool(abstract))}, PMID: {not(bool(pmid))}"
                     )
                     continue
 
@@ -232,7 +232,7 @@ class AsyncQdrantVectorStore:
                         "genes": [g.model_dump() for g in pmid_to_genes.get(pmid, [])],
                     }
 
-                    batch_ids.append(str(uuid.uuid4()))
+                    batch_ids.append(int(pmid))
                     batch_payloads.append(payload)
                     batch_dense_vectors.append(dense_vector)
                     batch_sparse_vectors.append(sparse_vector)
@@ -248,7 +248,7 @@ class AsyncQdrantVectorStore:
                     await self.client.upsert(
                         collection_name=self.collection_name,
                         points=Batch(
-                            ids=[str(i) for i in batch_ids],
+                            ids=batch_ids,
                             payloads=batch_payloads,
                             vectors={"Dense": batch_dense_vectors,
                                      "Lexical": batch_sparse_vectors},

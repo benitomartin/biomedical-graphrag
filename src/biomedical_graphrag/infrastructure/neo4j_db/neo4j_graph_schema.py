@@ -31,7 +31,6 @@ class Neo4jGraphIngestion:
             "CREATE CONSTRAINT IF NOT EXISTS FOR (a:Author) REQUIRE a.name IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (i:Institution) REQUIRE i.name IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (m:MeshTerm) REQUIRE m.ui IS UNIQUE",
-            "CREATE CONSTRAINT IF NOT EXISTS FOR (q:Qualifier) REQUIRE q.name IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (j:Journal) REQUIRE j.name IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (g:Gene) REQUIRE g.gene_id IS UNIQUE",
         ]
@@ -77,10 +76,12 @@ class Neo4jGraphIngestion:
 
                 for mesh_term in paper.mesh_terms:
                     await self._create_mesh_term_relationship(
-                        paper.pmid, mesh_term.ui, mesh_term.term, mesh_term.major_topic
+                        paper.pmid,
+                        mesh_term.ui,
+                        mesh_term.term,
+                        mesh_term.major_topic,
+                        mesh_term.qualifiers,
                     )
-                    for qualifier in mesh_term.qualifiers:
-                        await self._create_qualifier_relationship(mesh_term.ui, qualifier)
             except Exception as e:
                 logger.warning(f"⚠️ Failed to ingest relationships for paper {paper.pmid}: {e}")
 
@@ -229,24 +230,22 @@ class Neo4jGraphIngestion:
         )
 
     async def _create_mesh_term_relationship(
-        self, pmid: str, ui: str, term: str, major_topic: bool
+        self, pmid: str, ui: str, term: str, major_topic: bool, qualifiers: list[str]
     ) -> None:
         await self.client.create_graph(
             """
             MERGE (m:MeshTerm {ui: $ui})
             SET m.term = $term
             MERGE (p:Paper {pmid: $pmid})
-            MERGE (p)-[:HAS_MESH_TERM {major_topic: $major_topic}]->(m)
+            MERGE (p)-[r:HAS_MESH_TERM]->(m)
+            SET r.major_topic = $major_topic,
+                r.qualifiers = $qualifiers
             """,
-            {"ui": ui, "term": term, "pmid": pmid, "major_topic": major_topic},
-        )
-
-    async def _create_qualifier_relationship(self, mesh_ui: str, qualifier: str) -> None:
-        await self.client.create_graph(
-            """
-            MERGE (q:Qualifier {name: $qualifier})
-            MERGE (m:MeshTerm {ui: $ui})
-            MERGE (m)-[:HAS_QUALIFIER]->(q)
-            """,
-            {"ui": mesh_ui, "qualifier": qualifier},
+            {
+                "ui": ui,
+                "term": term,
+                "pmid": pmid,
+                "major_topic": major_topic,
+                "qualifiers": qualifiers,
+            },
         )

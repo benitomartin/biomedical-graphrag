@@ -40,15 +40,13 @@ class Neo4jGraphQuery:
         - Author: {name}
         - Institution: {name}
         - MeshTerm: {ui, term}
-        - Qualifier: {name}
         - Journal: {name}
         - Gene: {gene_id, name, description, chromosome, map_location, organism, aliases, designations}
 
         Relationships:
         - (Author)-[:WROTE]->(Paper)
         - (Author)-[:AFFILIATED_WITH]->(Institution)
-        - (Paper)-[:HAS_MESH_TERM]->(MeshTerm)
-        - (Paper)-[:HAS_QUALIFIER]->(Qualifier)
+        - (Paper)-[:HAS_MESH_TERM {major_topic: boolean, qualifiers: [string]}]->(MeshTerm)
         - (Paper)-[:PUBLISHED_IN]->(Journal)
         - (Paper)-[:CITES]->(Paper)
         - (Gene)-[:MENTIONED_IN]->(Paper)
