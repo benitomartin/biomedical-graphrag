@@ -125,8 +125,9 @@ class TestDatabaseConnectionSettings:
 
         assert qdrant_settings.url == "http://localhost:6333"
         assert qdrant_settings.collection_name == "biomedical_papers"
-        assert qdrant_settings.embedding_model == "text-embedding-3-small"
+        assert qdrant_settings.embedding_model == "text-embedding-3-large"
         assert qdrant_settings.embedding_dimension == 1536
+        assert qdrant_settings.reranker_embedding_dimension == 3072
         assert qdrant_settings.estimate_bm25_avg_len_on_x_docs == 300
         assert qdrant_settings.cloud_inference is False
 

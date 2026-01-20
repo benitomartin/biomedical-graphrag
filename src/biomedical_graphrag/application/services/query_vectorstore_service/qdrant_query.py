@@ -23,6 +23,7 @@ class AsyncQdrantQuery:
         self.api_key = settings.qdrant.api_key
         self.collection_name = settings.qdrant.collection_name
         self.embedding_dimension = settings.qdrant.embedding_dimension
+        self.reranker_embedding_dimension = settings.qdrant.reranker_embedding_dimension
         self.cloud_inference = settings.qdrant.cloud_inference
 
         self.openai_client = AsyncOpenAI(api_key=settings.openai.api_key.get_secret_value())
@@ -72,7 +73,7 @@ class AsyncQdrantQuery:
     async def retrieve_documents_hybrid(self, question: str, top_k: int = 5) -> list[dict]:
         """
         Query the Qdrant vector search engine (async).
-        Hybrid dense + lexical search, fused with Reciprocal Rank Fusion.
+        Hybrid dense + lexical search, fused by reranking with text-embedding-3-large.
 
         Args:
             question (str): Input question - query.
@@ -80,14 +81,19 @@ class AsyncQdrantQuery:
         Returns:
             List of dictionaries containing the top_k similar documents.
         """
-        dense_vector = await self.qdrant_client._get_openai_vectors(question)
+        retriever_vector = await self.qdrant_client._get_openai_vectors(
+            question, dimensions=self.embedding_dimension
+        )
+        reranker_vector = await self.qdrant_client._get_openai_vectors(
+            question, dimensions=self.reranker_embedding_dimension
+        )
         sparse_vector = self.qdrant_client._define_bm25_vectors(question)
 
         search_result = await self.qdrant_client.client.query_points(
             collection_name=self.collection_name,
             prefetch=[
                 models.Prefetch(
-                    query=dense_vector,
+                    query=retriever_vector,
                     using="Dense",
                     params=models.SearchParams(
                         quantization=models.QuantizationSearchParams(
@@ -103,7 +109,9 @@ class AsyncQdrantQuery:
                     limit=top_k,
                 ),
             ],
-            query=models.RrfQuery(rrf=models.Rrf(k=60)),
+            # query=models.RrfQuery(rrf=models.Rrf(k=60)),
+            query=reranker_vector,
+            using="Reranker",
             limit=top_k,
             with_payload=True,
         )

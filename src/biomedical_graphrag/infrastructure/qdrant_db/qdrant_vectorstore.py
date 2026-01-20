@@ -27,6 +27,7 @@ class AsyncQdrantVectorStore:
         self.api_key = settings.qdrant.api_key
         self.collection_name = settings.qdrant.collection_name
         self.embedding_dimension = settings.qdrant.embedding_dimension
+        self.reranker_embedding_dimension = settings.qdrant.reranker_embedding_dimension
         self.estimate_bm25_avg_len_on_x_docs = settings.qdrant.estimate_bm25_avg_len_on_x_docs
         self.cloud_inference = settings.qdrant.cloud_inference
 
@@ -44,7 +45,8 @@ class AsyncQdrantVectorStore:
 
     async def create_collection(self) -> None:
         """
-        Create a new collection in Qdrant (async) for hybrid search with scalar quantization.
+        Create a new collection in Qdrant (async) for hybrid search with MRL-based reranking
+        Retriever's embeddings are quantized using scalar quantization.
         Args:
                 collection_name (str): Name of the collection.
                 kwargs: Additional parameters for collection creation.
@@ -61,7 +63,13 @@ class AsyncQdrantVectorStore:
                             type=models.ScalarType.INT8, quantile=0.99, always_ram=True
                         )
                     ),
-                )
+                ),
+                "Reranker": models.VectorParams(
+                    size=self.reranker_embedding_dimension,
+                    distance=models.Distance.COSINE,
+                    on_disk=True,
+                    hnsw_config=models.HnswConfigDiff(m=0),
+                ),
             },
             sparse_vectors_config={"Lexical": models.SparseVectorParams(modifier=models.Modifier.IDF)},
         )
@@ -77,11 +85,12 @@ class AsyncQdrantVectorStore:
         await self.client.delete_collection(collection_name=self.collection_name)
         logger.info(f"✅ Collection '{self.collection_name}' deleted successfully")
 
-    async def _get_openai_vectors(self, text: str) -> models.Vector:
+    async def _get_openai_vectors(self, text: str, dimensions: int = 1536) -> models.Vector:
         """
         Get the embedding vector for the given text (async).
         Args:
                 text (str): Input text to embed.
+                dimensions (int): Number of dimensions to return from the embedding. https://platform.openai.com/docs/api-reference/embeddings/create#embeddings-create-dimensions
         Returns:
                 list[float]: The embedding vector.
         """
@@ -89,12 +98,15 @@ class AsyncQdrantVectorStore:
             return models.Document(
                 text=text,
                 model=f"openai/{settings.qdrant.embedding_model}",
-                options={"openai-api-key": settings.openai.api_key.get_secret_value()},
+                options={
+                    "openai-api-key": settings.openai.api_key.get_secret_value(),
+                    "dimensions": dimensions,
+                },
             )
         else:
             try:
                 embedding = await self.openai_client.embeddings.create(
-                    model=settings.qdrant.embedding_model, input=text
+                    model=settings.qdrant.embedding_model, input=text, dimensions=dimensions
                 )
                 return embedding.data[0].embedding
             except Exception as e:
@@ -180,7 +192,8 @@ class AsyncQdrantVectorStore:
 
             batch_ids = []
             batch_payloads = []
-            batch_dense_vectors = []
+            batch_retriever_vectors = []
+            batch_reranker_vectors = []
             batch_sparse_vectors = []
             batch_skipped = 0
 
@@ -203,7 +216,13 @@ class AsyncQdrantVectorStore:
                     continue
 
                 try:
-                    dense_vector = await self._get_openai_vectors(abstract)
+                    retriever_vector = await self._get_openai_vectors(
+                        abstract, dimensions=self.embedding_dimension
+                    )  # MRL, https://platform.openai.com/docs/guides/embeddings#use-cases
+                    reranker_vector = await self._get_openai_vectors(
+                        abstract, dimensions=self.reranker_embedding_dimension
+                    )
+
                     sparse_vector = self._define_bm25_vectors(abstract, avg_len=avg_abstracts_len)
 
                     # Get citation network for this paper if available
@@ -229,7 +248,8 @@ class AsyncQdrantVectorStore:
 
                     batch_ids.append(int(pmid))
                     batch_payloads.append(payload)
-                    batch_dense_vectors.append(dense_vector)
+                    batch_retriever_vectors.append(retriever_vector)
+                    batch_reranker_vectors.append(reranker_vector)
                     batch_sparse_vectors.append(sparse_vector)
 
                 except Exception as e:
@@ -245,7 +265,11 @@ class AsyncQdrantVectorStore:
                         points=Batch(
                             ids=batch_ids,
                             payloads=batch_payloads,
-                            vectors={"Dense": batch_dense_vectors, "Lexical": batch_sparse_vectors},
+                            vectors={
+                                "Dense": batch_retriever_vectors,
+                                "Reranker": batch_reranker_vectors,
+                                "Lexical": batch_sparse_vectors,
+                            },
                         ),
                     )
                     total_processed += len(batch_ids)

@@ -32,9 +32,15 @@ class QdrantSettings(BaseModel):
         default="biomedical_papers", description="Collection name for Qdrant instance"
     )
     embedding_model: str = Field(
-        default="text-embedding-3-small", description="OpenAI embedding model to use"
+        default="text-embedding-3-large", description="OpenAI embedding model to use"
     )
-    embedding_dimension: int = Field(default=1536, description="Dimension of the OpenAI embedding model")
+    embedding_dimension: int = Field(
+        default=1536, description="Dimension of the OpenAI embedding for retrieval (using OpenAI's MRL)"
+    )
+    reranker_embedding_dimension: int = Field(
+        default=3072,
+        description="Dimension of the OpenAI embedding for reranking (using OpenAI's MRL)",
+    )
     estimate_bm25_avg_len_on_x_docs: int = Field(
         default=300,
         description="Number of documents to sample for estimating average length of documents, used in BM25 formula",

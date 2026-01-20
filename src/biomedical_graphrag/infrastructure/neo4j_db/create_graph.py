@@ -67,14 +67,6 @@ async def create_graph(
     logger.info(f"Loading paper dataset from {dataset_path}...")
     dataset = load_paper_dataset(dataset_path)
 
-    # Filter out invalid papers (missing/blank PMID) before ingestion.
-    valid_papers = [p for p in dataset.papers if (p.pmid or "").strip()]
-    skipped = len(dataset.papers) - len(valid_papers)
-    if skipped:
-        logger.warning(f"⚠️ Skipping {skipped} papers with empty PMIDs")
-
-    dataset.papers = valid_papers
-
     logger.info(f"Loaded {len(dataset.papers)} papers")
 
     # Load gene dataset (optional)

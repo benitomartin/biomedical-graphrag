@@ -148,8 +148,9 @@ NEO4J__DATABASE=neo4j
 QDRANT__URL=http://localhost:6333
 QDRANT__API_KEY=your_qdrant_api_key
 QDRANT__COLLECTION_NAME=biomedical_papers
-QDRANT__EMBEDDING_MODEL=text-embedding-3-small
+QDRANT__EMBEDDING_MODEL=text-embedding-3-large
 QDRANT__EMBEDDING_DIMENSION=1536
+QDRANT__RERANKER_EMBEDDING_DIMENSION=3072
 QDRANT__ESTIMATE_BM25_AVG_LEN_ON_X_DOCS=300
 QDRANT__CLOUD_INFERENCE=false
 
@@ -204,6 +205,9 @@ make delete-qdrant-collection
 Notes:
 
 - Embeddings are built from **PubMed paper abstracts**.
+- This project uses OpenAI eembeddings **Matryoshka Representation Learning (MRL)** feature:
+  - `QDRANT__EMBEDDING_DIMENSION` is the prefix dimension used for **retrieval** (stored in Qdrant as the `Dense` vector).
+  - `QDRANT__RERANKER_EMBEDDING_DIMENSION` is the (larger) prefix dimension used for **reranking** (stored in Qdrant as the `Reranker` vector).
 - `make ingest-qdrant-data` currently recreates the collection each run (see `qdrant_ingestion.py`).
   If you want incremental ingestion, change `recreate=True` to `False`.
 - The collection is configured by default with **scalar quantization** (compressed dense vectors).
