@@ -170,11 +170,22 @@ The system includes data collectors for biomedical and gene datasets:
 ```bash
 # Collect PubMed papers and metadata
 make pubmed-data-collector-run
+
+# Override defaults (optional)
+make pubmed-data-collector-run QUERY="cancer immunotherapy" MAX_RESULTS=200
 ```
 
 ```bash
 # Collect gene information related to the pubmed dataset
 make gene-data-collector-run
+```
+
+```bash
+# Enrich PubMed dataset with related papers
+make enrich-pubmed-dataset
+
+# Skip the first N papers as sources (optional)
+make enrich-pubmed-dataset START_INDEX=1000
 ```
 
 ### Infrastructure Setup

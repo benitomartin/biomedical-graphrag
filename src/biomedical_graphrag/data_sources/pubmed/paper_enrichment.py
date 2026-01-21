@@ -6,6 +6,7 @@ and adds one related paper if not already present.
 """
 
 import asyncio
+import argparse
 import json
 import re
 
@@ -329,14 +330,24 @@ async def main() -> None:
     Main function to run paper enrichment.
 
     Loads the dataset, enriches it with related papers, and saves the result.
-    Starts from index 1000 to skip original papers already used as sources.
+    Starts from specific index to skip papers already used as sources.
 
     Returns:
         None
     """
+    parser = argparse.ArgumentParser(
+        description="Enrich an existing PubMed dataset by adding related papers.",
+    )
+    parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="Index to start processing from (skip papers already used as sources).",
+    )
+    args = parser.parse_args()
+
     enricher = PaperEnrichmentCollector()
-    # Start from 1000 to skip original papers already used as sources
-    enriched_dataset = await enricher.enrich_dataset(start_index=1000)
+    enriched_dataset = await enricher.enrich_dataset(start_index=args.start_index)
 
     output_path = settings.json_data.pubmed_json_path
     with open(output_path, "w", encoding="utf-8") as f:
