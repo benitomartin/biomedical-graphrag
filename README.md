@@ -220,7 +220,8 @@ Notes:
   - `QDRANT__EMBEDDING_DIMENSION` is the prefix dimension used for **retrieval** (stored in Qdrant as the `Dense` vector).
   - `QDRANT__RERANKER_EMBEDDING_DIMENSION` is the (larger) prefix dimension used for **reranking** (stored in Qdrant as the `Reranker` vector).
 - `make ingest-qdrant-data` currently recreates the collection each run (see `qdrant_ingestion.py`).
-  If you want incremental ingestion, change `recreate=True` to `False`.
+  If you don't want that, change `recreate=True` to `False`. There's also an `only_new` parameter which defaults to `True`, so we ingest only papers whose PMID is not already
+  present in the collection. Set `only_new=False` if you'd prefer to overwrite existing points or on a clean ingestion (then it should be `False`!)
 - The collection is configured by default with **scalar quantization** (compressed dense vectors).
 - `QDRANT__CLOUD_INFERENCE=true` enables **Qdrant Cloud Inference** when embeddings are computed by Qdrant Cloud.
 - `QDRANT__ESTIMATE_BM25_AVG_LEN_ON_X_DOCS` controls how many documents are sampled to estimate the average abstract length used by **BM25**. This helps calibrate BM25-based scoring when using dense+BM25 hybrid retrieval.

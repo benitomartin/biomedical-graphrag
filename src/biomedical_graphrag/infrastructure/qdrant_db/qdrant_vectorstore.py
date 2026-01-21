@@ -2,7 +2,7 @@ from typing import Any
 
 from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Batch, models
+from qdrant_client.models import PointsList, models
 
 from biomedical_graphrag.config import settings
 
@@ -139,7 +139,7 @@ class AsyncQdrantVectorStore:
         )
 
     async def upsert_points(
-        self, pubmed_data: dict[str, Any], gene_data: dict[str, Any] | None = None, batch_size: int = 50
+        self, pubmed_data: dict[str, Any], gene_data: dict[str, Any] | None = None, only_new: bool = False, batch_size: int = 30
     ) -> None:
         """
         Upsert points into a collection from pubmed_dataset.json structure,
@@ -147,6 +147,7 @@ class AsyncQdrantVectorStore:
         Args:
             pubmed_data (dict): Parsed JSON data from pubmed_dataset.json.
             gene_data (dict | None): Parsed JSON data from gene_dataset.json.
+            only_new (bool): If True, only ingest papers NOT present in the collection (there's no papers with such PMID).
             batch_size (int): Number of points to process in each batch.
         """
         papers = pubmed_data.get("papers", [])
@@ -201,11 +202,8 @@ class AsyncQdrantVectorStore:
 
             logger.info(f"📦 Processing batch {batch_num}/{total_batches} ({len(batch_papers)} papers)")
 
-            batch_ids = []
-            batch_payloads = []
-            batch_retriever_vectors = []
-            batch_reranker_vectors = []
-            batch_sparse_vectors = []
+            batch_upsert_operations = [] # for only_new True
+            batch_points = [] # for only_new False
             batch_skipped = 0
 
             for paper in batch_papers:
@@ -226,25 +224,8 @@ class AsyncQdrantVectorStore:
                     )
                     continue
 
-                try:
-                    if self.cloud_inference:
-                        retriever_vector = self._define_openai_vectors(
-                            abstract, dimensions=self.embedding_dimension
-                        )
-                        reranker_vector = self._define_openai_vectors(
-                            abstract, dimensions=self.reranker_embedding_dimension
-                        )
-                    else:
-                        openai_vector = await self._get_openai_vectors(abstract, dimensions=self.reranker_embedding_dimension)  # MRL, https://platform.openai.com/docs/guides/embeddings#use-cases
-                        retriever_vector = openai_vector[:self.embedding_dimension] # Qdrant normalizes vectors used with COSINE automatically on upsert/query 
-                        reranker_vector = openai_vector #reranking vector is more precise, hence, has more dimensions
-                        
-                    sparse_vector = self._define_bm25_vectors(abstract, avg_len=avg_abstracts_len)
-
-                    # Get citation network for this paper if available
-                    # citation_info = citation_network_dict.get(pmid, {})
-                    # citation_network = CitationNetwork(**citation_info) if citation_info else None
-
+                try:    
+                    point_id = int(pmid)
                     paper_model = Paper(
                         pmid=pmid,
                         title=title,
@@ -262,11 +243,49 @@ class AsyncQdrantVectorStore:
                         "genes": [g.model_dump() for g in pmid_to_genes.get(pmid, [])],
                     }
 
-                    batch_ids.append(int(pmid))
-                    batch_payloads.append(payload)
-                    batch_retriever_vectors.append(retriever_vector)
-                    batch_reranker_vectors.append(reranker_vector)
-                    batch_sparse_vectors.append(sparse_vector)
+                    if self.cloud_inference:
+                        retriever_vector = self._define_openai_vectors(
+                            abstract, dimensions=self.embedding_dimension
+                        )
+                        reranker_vector = self._define_openai_vectors(
+                            abstract, dimensions=self.reranker_embedding_dimension
+                        )
+                    else:
+                        openai_vector = await self._get_openai_vectors(abstract, dimensions=self.reranker_embedding_dimension)  # MRL, https://platform.openai.com/docs/guides/embeddings#use-cases
+                        retriever_vector = openai_vector[:self.embedding_dimension] # Qdrant normalizes vectors used with COSINE automatically on upsert/query 
+                        reranker_vector = openai_vector #reranking vector is more precise, hence, has more dimensions
+                        
+                    sparse_vector = self._define_bm25_vectors(abstract, avg_len=avg_abstracts_len)
+
+                    point = models.PointStruct(
+                        id=point_id,
+                        vector={
+                            "Dense": retriever_vector,
+                            "Reranker": reranker_vector,
+                            "Lexical": sparse_vector,
+                        },
+                        payload=payload,
+                    )
+
+                    # Get citation network for this paper if available
+                    # citation_info = citation_network_dict.get(pmid, {})
+                    # citation_network = CitationNetwork(**citation_info) if citation_info else None
+
+                    if only_new:
+                        batch_upsert_operations.append(
+                            models.UpsertOperation(
+                                upsert=PointsList(
+                                    points=[point],
+                                    update_filter=models.Filter(              
+                                        must_not=[
+                                            models.HasIdCondition(has_id=[point_id]),
+                                        ]
+                                    )
+                                )
+                            )
+                        )
+                    else:
+                        batch_points.append(point)
 
                 except Exception as e:
                     logger.error(f"❌ Failed to process paper {pmid}: {e}")
@@ -274,31 +293,43 @@ class AsyncQdrantVectorStore:
                     continue
 
             # Upsert batch if we have any valid papers
-            if batch_ids:
-                try:
-                    await self.client.upsert(
-                        collection_name=self.collection_name,
-                        points=Batch(
-                            ids=batch_ids,
-                            payloads=batch_payloads,
-                            vectors={
-                                "Dense": batch_retriever_vectors,
-                                "Reranker": batch_reranker_vectors,
-                                "Lexical": batch_sparse_vectors,
-                            },
-                        ),
-                    )
-                    total_processed += len(batch_ids)
-                    total_skipped += batch_skipped
-                    logger.info(
-                        f"✅ Batch {batch_num} completed: {len(batch_ids)} papers upserted, \
-                            {batch_skipped} skipped"
-                    )
-                except Exception as e:
-                    logger.error(f"❌ Failed to upsert batch {batch_num}: {e}")
-                    raise
+
+            if only_new: 
+                if batch_upsert_operations:
+                    try:
+                        await self.client.batch_update_points(
+                            collection_name=self.collection_name,
+                            update_operations=batch_upsert_operations,
+                        )
+                        total_skipped += batch_skipped
+                        logger.info(
+                            f"✅ Batch {batch_num} completed: {len(batch_upsert_operations)} papers upserted, \
+                                {batch_skipped} skipped"
+                        )
+                    except Exception as e:
+                        logger.error(f"❌ Failed to upsert batch {batch_num}: {e}")
+                        raise
+                else:
+                    logger.warning(f"⚠️ Batch {batch_num} had no valid papers to process")
             else:
-                logger.warning(f"⚠️ Batch {batch_num} had no valid papers to process")
+                if batch_points:
+                    try:
+                        await self.client.upsert(
+                            collection_name=self.collection_name,
+                            points=PointsList(
+                                points=batch_points,
+                            ),
+                        )
+                        total_skipped += batch_skipped
+                        logger.info(
+                            f"✅ Batch {batch_num} completed: {len(batch_points)} papers upserted, \
+                                {batch_skipped} skipped"
+                        )
+                    except Exception as e:
+                        logger.error(f"❌ Failed to upsert batch {batch_num}: {e}")
+                        raise
+                else:
+                    logger.warning(f"⚠️ Batch {batch_num} had no valid papers to process")
 
         logger.info(
             f"🎉 Ingestion complete! Total: {total_processed} papers processed, {total_skipped} skipped"

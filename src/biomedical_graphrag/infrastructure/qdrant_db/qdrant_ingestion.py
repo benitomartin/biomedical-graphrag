@@ -14,7 +14,7 @@ async def ingest_data(recreate: bool = False, only_new: bool = True) -> None:
 
     Args:
         recreate: If True, recreate the collection (deletes all existing data).
-        only_new: If True, only ingest papers not already in the collection.
+        only_new: If True, only ingest papers NOT present in the collection (there's no papers with such PMID).
     """
     logger.info("Starting Qdrant data ingestion...")
 
@@ -39,29 +39,9 @@ async def ingest_data(recreate: bool = False, only_new: bool = True) -> None:
         logger.info(
             f"Loaded {total_papers} papers and {len(gene_data.get('genes', []))} genes"
         )
-
-        # Filter to only new papers if requested
-        if only_new and not recreate:
-            existing_ids = await vector_store.get_existing_ids()
-            if existing_ids:
-                original_papers = pubmed_data.get("papers", [])
-                new_papers = [
-                    p for p in original_papers
-                    if p.get("pmid") and int(p["pmid"]) not in existing_ids
-                ]
-                pubmed_data["papers"] = new_papers
-                logger.info(
-                    f"Filtered to {len(new_papers)} new papers "
-                    f"(skipping {total_papers - len(new_papers)} existing)"
-                )
-
-                if not new_papers:
-                    logger.info("No new papers to ingest. Done.")
-                    return
-
         # Upsert papers with attached genes in payload
         logger.info("Starting data upsertion...")
-        await vector_store.upsert_points(pubmed_data, gene_data)
+        await vector_store.upsert_points(pubmed_data, gene_data, only_new=only_new)
         logger.info("Embeddings ingestion complete.")
     except Exception as e:
         logger.error(f"Ingestion failed: {e}")
