@@ -14,6 +14,7 @@ dependencies = [
     "loguru>=0.7.3",
     "neo4j>=5.28.2",
     "neo4j-graphrag>=1.10.0",
+    "nest-asyncio>=1.5.8",
     "openai>=1.0.0",
     "pydantic>=2.12.0",
     "pydantic-settings>=2.11.0",

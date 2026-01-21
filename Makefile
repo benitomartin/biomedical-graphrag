@@ -26,6 +26,11 @@ gene-data-collector-run: ## Run the data collector
 	uv run src/biomedical_graphrag/data_sources/gene/gene_data_collector.py
 	@echo "Data collector run complete."
 
+enrich-pubmed-dataset: ## Enrich PubMed dataset with related papers
+	@echo "Running paper enrichment..."
+	uv run src/biomedical_graphrag/data_sources/pubmed/paper_enrichment.py
+	@echo "Paper enrichment complete."
+
 #################################################################################
 ## Neo4j Graph Commands
 #################################################################################
