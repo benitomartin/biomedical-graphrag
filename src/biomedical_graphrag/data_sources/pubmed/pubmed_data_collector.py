@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 from datetime import datetime
 from typing import Any
 
@@ -333,6 +334,21 @@ class PubMedDataCollector(BaseDataSource):
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description="Collect PubMed dataset and write it to JSON.")
+    parser.add_argument(
+        "--query",
+        type=str,
+        default="CRISPR gene editing Homo sapiens[Organism]",
+        help="PubMed search query (ESearch term).",
+    )
+    parser.add_argument(
+        "--max-results",
+        type=int,
+        default=1000,
+        help="Maximum number of PubMed papers (PMIDs) to collect.",
+    )
+    args = parser.parse_args()
+
     async def main() -> None:
         """
         Main function to collect PubMed dataset.
@@ -346,8 +362,8 @@ if __name__ == "__main__":
         print("Using api_key:", api_key)
         collector = PubMedDataCollector()
         dataset = await collector.collect_dataset(
-            query="CRISPR gene editing Homo sapiens[Organism]",
-            max_results=1000,
+            query=args.query,
+            max_results=args.max_results,
         )
         with open(settings.json_data.pubmed_json_path, "w") as f:
             f.write(dataset.model_dump_json(indent=2))

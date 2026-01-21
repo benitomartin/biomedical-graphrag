@@ -37,6 +37,7 @@ dependencies = [
     { name = "loguru" },
     { name = "neo4j" },
     { name = "neo4j-graphrag" },
+    { name = "nest-asyncio" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -62,6 +63,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "neo4j-graphrag", specifier = ">=1.10.0" },
+    { name = "nest-asyncio", specifier = ">=1.5.8" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "pydantic", specifier = ">=2.12.0" },
     { name = "pydantic-settings", specifier = ">=2.11.0" },
@@ -379,6 +381,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/20/ea/472d83d19a5da46957ff8a427861aa3954a424e8f4273023e87a940ee0f4/neo4j_graphrag-1.10.0.tar.gz", hash = "sha256:b74d57ebcaebb64b8496f7cb3cb8a3a3dd8d8f3b0df277635eade4584e7606a8", size = 121640, upload-time = "2025-09-04T13:10:05.673Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/be/38/71757c01c627402647c13a87f342b697e445623e21ad2aace3a4142b6bf9/neo4j_graphrag-1.10.0-py3-none-any.whl", hash = "sha256:7e016c5bf281df545309ff139c04b9a3ac426056bb68ba6a5508fa6578650f9d", size = 201746, upload-time = "2025-09-04T13:10:03.888Z" },
+]
+
+[[package]]
+name = "nest-asyncio"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/f8/51569ac65d696c8ecbee95938f89d4abf00f47d58d48f6fbabfe8f0baefe/nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe", size = 7418, upload-time = "2024-01-21T14:25:19.227Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c", size = 5195, upload-time = "2024-01-21T14:25:17.223Z" },
 ]
 
 [[package]]
@@ -767,7 +778,7 @@ name = "scipy"
 version = "1.16.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", marker = "python_full_version < '3.14'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4c/3b/546a6f0bfe791bbb7f8d591613454d15097e53f906308ec6f7c1ce588e8e/scipy-1.16.2.tar.gz", hash = "sha256:af029b153d243a80afb6eabe40b0a07f8e35c9adc269c019f364ad747f826a6b", size = 30580599, upload-time = "2025-09-11T17:48:08.271Z" }
 wheels = [
