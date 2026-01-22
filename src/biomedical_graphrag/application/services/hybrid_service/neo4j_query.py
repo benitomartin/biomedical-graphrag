@@ -66,7 +66,7 @@ class Neo4jGraphQuery:
                 ]
             )
             cypher = f"""
-                MATCH (a1:Author)-[:WROTE]->(p:Paper)<-[:WROTE]-(a2:Author)
+                MATCH (a1:Author)-[:WROTE]->(p)<-[:WROTE]-(a2:Author)
                 WHERE a1.name CONTAINS '{author_name}' AND a1 <> a2
                 WITH DISTINCT a2, p
                 {topic_matches}
@@ -77,7 +77,7 @@ class Neo4jGraphQuery:
         else:
             topic_conditions = " OR ".join([f"m.term CONTAINS '{topic}'" for topic in topics])
             cypher = f"""
-                MATCH (a1:Author)-[:WROTE]->(p:Paper)<-[:WROTE]-(a2:Author)
+                MATCH (a1:Author)-[:WROTE]->(p)<-[:WROTE]-(a2:Author)
                 WHERE a1.name CONTAINS '{author_name}' AND a1 <> a2
                 WITH DISTINCT a2, p
                 MATCH (p)-[:HAS_MESH_TERM]->(m:MeshTerm)
@@ -95,8 +95,8 @@ class Neo4jGraphQuery:
         Get institutions that collaborate frequently.
         """
         cypher = f"""
-            MATCH (i1:Institution)<-[:AFFILIATED_WITH]-(a1:Author)-[:WROTE]->(p:Paper)
-                  <-[:WROTE]-(a2:Author)-[:AFFILIATED_WITH]->(i2:Institution)
+            MATCH (i1)<-[:AFFILIATED_WITH]-(a1:Author)-[:WROTE]->(p)
+                  <-[:WROTE]-(a2:Author)-[:AFFILIATED_WITH]->(i2)
             WHERE i1.name < i2.name
             WITH i1, i2, COUNT(DISTINCT p) as collaborations
             WHERE collaborations >= {min_collaborations}
@@ -110,7 +110,7 @@ class Neo4jGraphQuery:
         Get papers related by MeSH terms to a given PMID.
         """
         cypher = f"""
-            MATCH (p1:Paper {{pmid: '{pmid}'}})-[:HAS_MESH_TERM]->(m:MeshTerm)
+            MATCH (p1:Paper {{pmid: '{pmid}'}})-[:HAS_MESH_TERM]->(m)
                   <-[:HAS_MESH_TERM]-(p2:Paper)
             WHERE p1 <> p2
             WITH p2, COUNT(DISTINCT m) as shared_terms

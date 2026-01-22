@@ -67,6 +67,7 @@ def run_graph_enrichment(question: str, qdrant_chunks: list[str]) -> dict[str, A
                 func = getattr(neo4j, name, None)
                 if func:
                     try:
+                        logger.info(f"LLM tool_call: {tool_call.name} args={tool_call.arguments}")
                         results[name] = func(**args)
                     except Exception as e:
                         results[name] = f"Error: {e}"
