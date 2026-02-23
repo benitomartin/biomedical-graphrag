@@ -45,6 +45,8 @@
 
 A comprehensive GraphRAG (Graph Retrieval-Augmented Generation) system designed for biomedical research. It combines knowledge graphs with vector search to provide intelligent querying and analysis of biomedical literature and genomic data.
 
+**Video:**
+
 <div align="center">
 
 <a href="https://www.youtube.com/watch?v=3NWTi90i6C4&t=200s" target="_blank">
@@ -55,7 +57,9 @@ A comprehensive GraphRAG (Graph Retrieval-Augmented Generation) system designed 
 
 &nbsp;
 
-Article: [Building a Biomedical GraphRAG: When Knowledge Graphs Meet Vector Search](https://aiechoes.substack.com/p/building-a-biomedical-graphrag-when)
+**Article:**
+
+ [Building a Biomedical GraphRAG: When Knowledge Graphs Meet Vector Search](https://aiechoes.substack.com/p/building-a-biomedical-graphrag-when)
 
 **Key Features:**
 
